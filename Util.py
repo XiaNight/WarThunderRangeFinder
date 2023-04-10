@@ -142,6 +142,7 @@ def IdentifyScreenshot(screenshot, selfIcon, squadPingIcon, enemyMarks, mapRatio
         return False, None
 
     json['S'] = selfArrowCenter
+    json['R'] = mapRatio
     convertedDistance = None
 
     # If squad ping is found
