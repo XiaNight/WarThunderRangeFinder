@@ -3,12 +3,17 @@ import socket
 
 HOST = '127.0.0.1'  # Standard loopback interface address (localhost)
 PORT = 65432        # Port to listen on (non-privileged ports are > 1023)
+sock = None
+connected = False
+try:
+    # create a socket object
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# create a socket object
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-# connect to the Unity machine
-sock.connect((HOST, PORT))
+    # connect to the Unity machine
+    sock.connect((HOST, PORT))
+    connected = True
+except:
+	print("Socket not connected, enter offline mode.")
 
 # callback = lambda message: None
 
@@ -30,12 +35,14 @@ sock.connect((HOST, PORT))
 
 def SendMessage(message):
     # send the message to Unity
-    sock.sendall(message.encode())
+    if connected:
+        sock.sendall(message.encode())
 
 def CloseSocket():
     # Stop the event loop and close the socket
     # loop.stop()
-    sock.close()
-    print("Socket Closed.")
+    if connected:
+        sock.close()
+        print("Socket Closed.")
 
 # loop.run_forever()

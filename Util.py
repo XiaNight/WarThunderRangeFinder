@@ -5,6 +5,7 @@ import pyttsx3 # speak
 import math
 import socket
 import json
+import matplotlib.pyplot as plt
 
 def TakeScreenShot(bbox=None):
     # Take a screenshot
@@ -13,7 +14,7 @@ def TakeScreenShot(bbox=None):
     screenshot = cv2.cvtColor(np.array(screenshot), cv2.COLOR_RGB2BGR)
     return screenshot
 
-def FindIcon(screenshot, icon_template, debug=False):
+def FindIcon(screenshot, icon_template, confidence=0.8, debug=False):
     # Convert the screenshot and icon template to grayscale
     screenshot_gray = screenshot[:,:,2]
     icon_template_gray = icon_template[:,:,2]
@@ -26,12 +27,12 @@ def FindIcon(screenshot, icon_template, debug=False):
     top_left = max_loc
 
     # Check if the confidence is below the threshold
-    if max_val < 0.8:
+    if max_val < confidence:
         return (screenshot, None)
 
     # Calculate the center
     h, w = icon_template_gray.shape
-    center = (top_left[0] + w/2, top_left[1] + h/2)
+    center = (int(top_left[0] + w/2), int(top_left[1] + h/2))
 
     # Draw a rectangle around the matched icon
     bottom_right = (top_left[0] + w, top_left[1] + h)
@@ -86,3 +87,83 @@ def CalculateDistance(pos1, pos2):
 
 def ToJson(dictionary):
 	return json.dumps(dictionary)
+
+def ShowImg(image):
+    imS = cv2.resize(image, (1080, 1080))
+    cv2.imshow('Screenshot with matched icon', imS)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+def ShowImages(*images, title="Figure"):
+    n_images = len(images)
+    n_rows = int(np.sqrt(n_images))
+    n_cols = int(np.ceil(n_images / n_rows))
+
+    fig, ax = plt.subplots(n_rows, n_cols, figsize=(10, 10))
+    fig.suptitle(title)
+
+    for i, image in enumerate(images):
+        row = i // n_cols
+        col = i % n_cols
+        ax[row, col].imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        ax[row, col].axis('off')
+
+    plt.show()
+
+def LoadIcons():
+    # Load the icon template
+    squadPing = cv2.imread('SquadPing.png')
+    selfArrow = cv2.imread('SelfArrow.png')
+
+    LT = cv2.imread('LT.png')
+    MT = cv2.imread('MT.png')
+    HT = cv2.imread('HT.png')
+    TD = cv2.imread('TD.png')
+    SPAA = cv2.imread('SPAA.png')
+    return selfArrow, squadPing, [LT, MT, HT, TD, SPAA]
+
+def IdentifyScreenshot(screenshot, selfIcon, squadPingIcon, enemyMarks, mapRatio, DEBUG=False):
+    # Highlight Icons
+    # _, screenshot = cv2.threshold(screenshot, 189, 255, cv2.THRESH_TOZERO)
+
+    # Process the yellow mask for self and squad mark
+    # yellow_mask = cv2.bitwise_and(screenshot[:,:,2], screenshot[:,:,1])
+
+    # Calculate Enemy Distances
+    markers = []
+    json = {}
+
+    # Find the icon in the screenshot
+    (screenshot, selfArrowCenter) = FindIcon(screenshot, selfIcon, 0.7, DEBUG)
+    (screenshot, squadPingCenter) = FindIcon(screenshot, squadPingIcon, 0.7, DEBUG)
+
+    # If failed to find self, abort
+    if selfArrowCenter == None:
+        return False, None
+
+    json['S'] = selfArrowCenter
+    convertedDistance = None
+
+    # If squad ping is found
+    if squadPingCenter != None:
+        distance = CalculateDistance(selfArrowCenter, squadPingCenter)
+        convertedDistance = int(distance * mapRatio)
+        markers.append({"P": squadPingCenter, "D": convertedDistance})
+        json['Sq'] = squadPingCenter
+        json['D'] = convertedDistance
+    else:
+        json['Sq'] = (0, 0)
+        json['D'] = 0
+
+
+    # Find Enemies Icons
+    threashHold = 0.7
+    for enemyMark in enemyMarks:
+        (_, marks) = FindIcons(screenshot, enemyMark, threashHold, DEBUG, (0, 0, 255))
+        for mark in marks:
+            d = int(CalculateDistance(selfArrowCenter, mark) * mapRatio)
+            markers.append({"P": mark, "D": d})
+        
+    print(markers)
+    json["E"] = markers
+    return True, json

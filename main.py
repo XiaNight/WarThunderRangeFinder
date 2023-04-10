@@ -12,23 +12,22 @@ key = 'c'
 killKey = 'p'
 
 # Load the icon template
-squadPing = cv2.imread('SquadPing.png')
-selfArrow = cv2.imread('SelfArrow.png')
+selfArrow, squadPing, enemyMarks = LoadIcons()
 
-LT = cv2.imread('LT.png')
-MT = cv2.imread('MT.png')
-HT = cv2.imread('HT.png')
-TD = cv2.imread('TD.png')
-SPAA = cv2.imread('SPAA.png')
-
-icon_template_gray = cv2.cvtColor(selfArrow, cv2.COLOR_BGR2GRAY)
 mapSize = int(input("Input map size: "))
+
+DEBUG = mapSize == -1
+if mapSize < 100:
+    print("Map size needs to be more than 100")
+    mapSize = 1000
+
 miniMapSize = 435
-mapRation = mapSize / miniMapSize
+mapRatio = mapSize / miniMapSize
 
 miniMapBbox = (2110, 990, 435, 435)
 
 print("App Starting, Press {0} to start calculation, {1} to stop the program".format(key, killKey))
+
 
 while True:
     time.sleep(0.1)
@@ -42,40 +41,23 @@ while True:
         # Take a screenshot
         screenshot = TakeScreenShot(miniMapBbox)
 
-        # Find the icon in the screenshot
-        (screenshot, selfArrowCenter) = FindIcon(screenshot, selfArrow, True)
-        (screenshot, squadPingCenter) = FindIcon(screenshot, squadPing, True)
+        success, json = IdentifyScreenshot(screenshot, selfArrow, squadPing, enemyMarks, mapRatio=mapRatio, DEBUG=True)
 
-        # Find Enemies Icons
-        threashHold = 0.72
-        (screenshot, HTs) = FindIcons(screenshot, HT, threashHold, True, (0, 0, 255))
-        (screenshot, MTs) = FindIcons(screenshot, MT, threashHold, True, (0, 255, 255))
-        (screenshot, TDs) = FindIcons(screenshot, TD, threashHold, True, (255, 0, 255))
-        (screenshot, SPAAs) = FindIcons(screenshot, SPAA, threashHold, True, (255, 255, 0))
-        (screenshot, LTs) = FindIcons(screenshot, LT, threashHold, True, (0, 255, 0))
-
-        # Calculate Enemy Distances
-
-        enemies = HTs + MTs + TDs + SPAAs + LTs
-        enemyWithDistances = []
-        for enemy in enemies:
-        	d = int(CalculateDistance(selfArrowCenter, enemy) * mapRation)
-        	enemyWithDistances.append({"Pos": enemy, "Distance": d})
-
-        print(enemyWithDistances)
-
-        distance = CalculateDistance(selfArrowCenter, squadPingCenter)
-        convertedDistance = distance * mapRation
-
-        json = {"Self": selfArrowCenter, "Squad": squadPingCenter, "Distance": convertedDistance, "Enemies": enemyWithDistances}
+        if success == False:
+            SendMessage("Clear")
+            Speak("失敗")
+            continue
 
         SendMessage(ToJson(json))
-        Speak(int(convertedDistance))
+
+        if json['D'] != 0:
+            Speak(int(json['D']))
+        else:
+            Speak("無標示點")
 
         # Show the result
-        # imS = cv2.resize(screenshot[:,:,2], (1920, 1080))
-        # cv2.imshow('Screenshot with matched icon', imS)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
+        if DEBUG:
+            ShowImg(screenshot)
 
 CloseSocket()
+Speak("結束程式")
