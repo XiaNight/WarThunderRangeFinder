@@ -56,12 +56,9 @@ def StopProgram():
     print("App stoped")
 
 def MainLoop():
-    global identifyBtnPressed
-    if identifyBtnPressed == False and keyboard.is_pressed(key):
-        identifyBtnPressed = True
+    if True:
         print("Identifing")
         # Tell Unity to Clear all things and wait a little bit
-        Socket.SendMessage("Clear")
 
         # Take a screenshot
         screenshot = TakeScreenShot(miniMapBbox)
@@ -81,8 +78,6 @@ def MainLoop():
         #     Speak(int(json['D']))
         # else:
         #     Speak("無標示點")
-    if identifyBtnPressed and keyboard.is_pressed(key) == False:
-        identifyBtnPressed = False
 
 def StartProgram():
     global stopFlag, mainTimer
@@ -93,7 +88,7 @@ def StartProgram():
     print("App Starting, Press {0} to start calculation".format(key))
 
     if mainTimer == None:
-        mainTimer = Timer.RepeatedTimer(0.1, MainLoop)
+        mainTimer = Timer.RepeatedTimer(5, MainLoop)
     mainTimer.start()
 
 def TryConnect():

@@ -41,7 +41,6 @@ def SendMessage(message):
     # send the message to Unity
     global connected
     if connected:
-        print(message)
         sock.sendall(message.encode())
         return True
     return False

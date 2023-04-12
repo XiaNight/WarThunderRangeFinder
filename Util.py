@@ -43,7 +43,10 @@ def FindIcon(screenshot, icon_template, confidence=0.8, debug=False):
 
 def FindIcons(screenshot, icon_template, confidence_threshold=0.8, debug=False, debug_color = (0, 255, 0)):
     # Convert the screenshot and icon template to grayscale
-    screenshot_gray = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+    if screenshot.ndim == 3 and screenshot.shape[2] == 3:
+        screenshot_gray = cv2.cvtColor(screenshot, cv2.COLOR_BGR2GRAY)
+    else:
+        screenshot_gray = screenshot
     icon_template_gray = cv2.cvtColor(icon_template, cv2.COLOR_BGR2GRAY)
 
     # Perform template matching
@@ -60,9 +63,8 @@ def FindIcons(screenshot, icon_template, confidence_threshold=0.8, debug=False, 
     h, w = icon_template_gray.shape
     for top_left in matches:
         bottom_right = (top_left[0] + w, top_left[1] + h)
-        centers.append((top_left[0] + w/2, top_left[1] + h/2))
-        if debug:
-            cv2.rectangle(screenshot, top_left, bottom_right, debug_color, -1)
+        centers.append((int(top_left[0] + w/2), int(top_left[1] + h/2)))
+        cv2.rectangle(screenshot, top_left, bottom_right, debug_color, -1)
 
     return screenshot, centers
 
@@ -102,6 +104,8 @@ def ShowImages(*images, title="Figure"):
     fig, ax = plt.subplots(n_rows, n_cols, figsize=(10, 10))
     fig.suptitle(title)
 
+    plt.subplots_adjust(left=0, right=1, bottom=0, top=1, wspace=0, hspace=0)
+
     for i, image in enumerate(images):
         row = i // n_cols
         col = i % n_cols
@@ -124,7 +128,8 @@ def LoadIcons():
 
 def IdentifyScreenshot(screenshot, selfIcon, squadPingIcon, enemyMarks, mapRatio, DEBUG=False):
     # Highlight Icons
-    # _, screenshot = cv2.threshold(screenshot, 189, 255, cv2.THRESH_TOZERO)
+    _, screenshot = cv2.threshold(screenshot, 189, 255, cv2.THRESH_TOZERO)
+
 
     # Process the yellow mask for self and squad mark
     # yellow_mask = cv2.bitwise_and(screenshot[:,:,2], screenshot[:,:,1])
@@ -136,6 +141,8 @@ def IdentifyScreenshot(screenshot, selfIcon, squadPingIcon, enemyMarks, mapRatio
     # Find the icon in the screenshot
     (screenshot, selfArrowCenter) = FindIcon(screenshot, selfIcon, 0.7, DEBUG)
     (screenshot, squadPingCenter) = FindIcon(screenshot, squadPingIcon, 0.7, DEBUG)
+
+    screenshot = screenshot[:,:,2]
 
     # If failed to find self, abort
     if selfArrowCenter == None:
@@ -160,11 +167,16 @@ def IdentifyScreenshot(screenshot, selfIcon, squadPingIcon, enemyMarks, mapRatio
     # Find Enemies Icons
     threashHold = 0.7
     for enemyMark in enemyMarks:
-        (_, marks) = FindIcons(screenshot, enemyMark, threashHold, DEBUG, (0, 0, 255))
+        (screenshot, marks) = FindIcons(screenshot, enemyMark, threashHold, DEBUG, (255, 128, 0))
         for mark in marks:
-            d = int(CalculateDistance(selfArrowCenter, mark) * mapRatio)
-            markers.append({"P": mark, "D": d})
+            allowed = True
+            for marker in markers:
+                if abs(marker["P"][0] - mark[0]) + abs(marker["P"][1] - mark[1]) < 10:
+                    allowed = False
+                    break
+            if allowed:
+                d = int(CalculateDistance(selfArrowCenter, mark) * mapRatio)
+                markers.append({"P": mark, "D": d})
         
-    print(markers)
     json["E"] = markers
     return True, json
